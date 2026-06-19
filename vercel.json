@@ -1,0 +1,6 @@
+{
+  "version": 2,
+  "rewrites": [
+    { "source": "/(.*)", "destination": "https://laszvjdlnmmkhtjmvgz.supabase.co/$1" }
+  ]
+}
