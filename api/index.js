@@ -1,5 +1,5 @@
 export default async function handler(req, res) {
-  // تنظیم هدرهای CORS برای ارتباط امن اندروید
+  // هدرهای CORS برای دسترسی اندروید
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, apikey, Authorization');
@@ -9,26 +9,28 @@ export default async function handler(req, res) {
   }
 
   const SUPABASE_URL = "https://laszvjdlnmmkhtjmvgz.supabase.co";
-  
-  // پیدا کردن مسیر واقعی درخواست (مثلاً /auth/v1/signup)
-  // چون آدرس با /api شروع شده، کلمه /api را از اولش پاک می‌کنیم تا سوپابیس بفهمد
   const cleanPath = req.url.replace(/^\/api/, '');
   const targetUrl = SUPABASE_URL + cleanPath;
 
   try {
-    // کپی کردن و بازسازی هدرهای اصلی برای سوپابیس
+    // بازسازی هدرها به صورت کاملا ایمن
     const headers = {};
     if (req.headers['content-type']) headers['content-type'] = req.headers['content-type'];
     if (req.headers['apikey']) headers['apikey'] = req.headers['apikey'];
     if (req.headers['authorization']) headers['authorization'] = req.headers['authorization'];
 
-    // آماده‌سازی بدنه درخواست
     let body = undefined;
+
+    // متد جدید برای خواندن بادی به صورت استریم خام جهت جلوگیری از ارور 500
     if (req.method !== 'GET' && req.method !== 'HEAD') {
-      body = typeof req.body === 'object' ? JSON.stringify(req.body) : req.body;
+      const buffers = [];
+      for await (const chunk of req) {
+        buffers.push(chunk);
+      }
+      body = Buffer.concat(buffers).toString('utf-8');
     }
 
-    // فرستادen درخواست به سوپابیس
+    // ارسال به سوپابیس
     const response = await fetch(targetUrl, {
       method: req.method,
       headers: headers,
@@ -36,11 +38,10 @@ export default async function handler(req, res) {
     });
 
     const data = await response.text();
-    
-    // بازگرداندن پاسخ سوپابیس به اپلیکیشن اندروید
     return res.status(response.status).send(data);
 
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    // اگر باز هم ارور داد، متن دقیق خطا را به اندروید برگردان تا ببینیم مشکل چیست
+    return res.status(500).send("خطای سرور ورسل: " + error.message);
   }
 }
